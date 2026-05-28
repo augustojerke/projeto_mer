@@ -1,0 +1,28 @@
+# ── Ambiente virtual ───────────────────────────────────────────
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ── Dataset DEAM — áudio raw e features (~58 GB) ───────────────
+data/deam/
+data/dynamic_features.csv
+data/processed/
+data/processed_static/
+data/chorus/
+
+# ── Cache de espectrogramas (.npz) — ~1.6 GB ──────────────────
+cache/
+
+# ── Pesos dos modelos treinados (.pt) — ~644 MB ───────────────
+checkpoints/
+
+# ── Saídas geradas em runtime ──────────────────────────────────
+predict_*.png
+
+# ── Configuração local do Claude Code ─────────────────────────
+.claude/
+
+# ── Sistema operacional ────────────────────────────────────────
+Thumbs.db
+.DS_Store
