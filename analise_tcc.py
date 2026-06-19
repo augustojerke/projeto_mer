@@ -1,11 +1,3 @@
-# analise_tcc.py
-# Análise complementar para TCC:
-#   1. Baseline trivial (preditor constante = média do treino)
-#   2. Wilcoxon signed-rank entre pares de modos (5 folds)
-#   3. Scatter plots predito × real (arousal e valence)
-#   4. Curvas de aprendizado (val CCC por época)
-#   5. Exemplos de espectrogramas (MEL vs MFCC vs STFT da mesma música)
-
 import os
 import glob
 import json
@@ -22,9 +14,6 @@ from torch.utils.data import DataLoader
 from dataset import DEAMDinamicoDataset
 from model import build_model
 
-# ─────────────────────────────────────────
-# Config
-# ─────────────────────────────────────────
 DEVICE    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 AUDIO_DIR = "data/deam/audio"
 CSV_PATH  = "data/dynamic_annotations.csv"
@@ -51,9 +40,6 @@ ids_cv    = ids_shuf[n_test:]
 df_test   = df[df["musicId"].isin(ids_test)].reset_index(drop=True)
 df_cv     = df[df["musicId"].isin(ids_cv)].reset_index(drop=True)
 
-# ─────────────────────────────────────────
-# Utilitários de métrica
-# ─────────────────────────────────────────
 def _ccc(p, l):
     p, l  = np.array(p), np.array(l)
     cov   = np.mean((p - p.mean()) * (l - l.mean()))
@@ -66,9 +52,6 @@ def _pearson(p, l):
 def _rmse(p, l):
     return float(np.sqrt(np.mean((np.array(p) - np.array(l)) ** 2)))
 
-# ─────────────────────────────────────────
-# 1. Predições reais por modo (5 folds no val + teste)
-# ─────────────────────────────────────────
 from sklearn.model_selection import KFold
 kf       = KFold(n_splits=5, shuffle=True, random_state=3)
 ids_cv_a = np.array(ids_cv)
@@ -76,14 +59,13 @@ ids_cv_a = np.array(ids_cv)
 print("=" * 60)
 print("Carregando checkpoints e gerando predições...")
 
-fold_cccs   = {m: [] for m in MODOS}   # CCC médio por fold (para Wilcoxon)
-test_preds  = {}                        # predições no teste por modo
+fold_cccs   = {m: [] for m in MODOS} 
+test_preds  = {}                        
 
 for modo in MODOS:
     print(f"\n  [{modo.upper()}]")
     preload = True
 
-    # ── Fold predictions (val set de cada fold)
     for fold, (tr_idx, val_idx) in enumerate(kf.split(ids_cv_a)):
         ids_v  = ids_cv_a[val_idx]
         df_v   = df_cv[df_cv["musicId"].isin(ids_v)].reset_index(drop=True)
@@ -113,7 +95,6 @@ for modo in MODOS:
         fold_cccs[modo].append(ccc_m)
         print(f"    fold{fold+1}: CCC A={ccc_a:.4f} V={ccc_v:.4f} media={ccc_m:.4f}")
 
-    # ── Teste: usa o melhor fold (maior CCC médio no val)
     best_fold = int(np.argmax(fold_cccs[modo])) + 1
     ckpt_best = os.path.join(CKPT_DIR, f"{ARCH}_{modo}_dinamico_fold{best_fold}_best.pt")
     modelo = build_model(ARCH, modo).to(DEVICE)
@@ -134,9 +115,6 @@ for modo in MODOS:
     test_preds[modo] = {"pred": p, "true": l}
     print(f"    Teste (fold{best_fold}): CCC A={_ccc(p[:,0],l[:,0]):.4f} V={_ccc(p[:,1],l[:,1]):.4f}")
 
-# ─────────────────────────────────────────
-# 2. Baseline Trivial
-# ─────────────────────────────────────────
 print("\n" + "=" * 60)
 print("BASELINE TRIVIAL (predição = média do treino)")
 mean_a = df_cv["Arousal(mean)"].mean()
@@ -162,9 +140,6 @@ for modo in MODOS:
     ganho_v = ccc_v - _ccc(base_v, true_v)
     print(f"  {modo.upper():4s}: Arousal +{ganho_a:.4f}  Valence +{ganho_v:.4f}")
 
-# ─────────────────────────────────────────
-# 3. Wilcoxon Signed-Rank (5 folds)
-# ─────────────────────────────────────────
 print("\n" + "=" * 60)
 print("TESTE DE WILCOXON (CCC médio por fold, 5 amostras)")
 pairs = [("mel", "mfcc"), ("mel", "stft"), ("mfcc", "stft")]
@@ -183,9 +158,6 @@ for a, b in pairs:
     med_a, med_b = np.mean(va), np.mean(vb)
     print(f"  {a.upper()} ({med_a:.4f}) vs {b.upper()} ({med_b:.4f}): W={stat:.1f} p={p:.4f} {sig}")
 
-# ─────────────────────────────────────────
-# 4. Scatter plots — predito × real
-# ─────────────────────────────────────────
 print("\n" + "=" * 60)
 print("Gerando scatter plots...")
 
@@ -221,9 +193,6 @@ plt.savefig(path_scatter, dpi=150, bbox_inches="tight")
 plt.close()
 print(f"  Salvo: {path_scatter}")
 
-# ─────────────────────────────────────────
-# 5. Curvas de aprendizado (val CCC por época)
-# ─────────────────────────────────────────
 print("Gerando curvas de aprendizado...")
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
@@ -253,9 +222,6 @@ plt.savefig(path_curvas, dpi=150, bbox_inches="tight")
 plt.close()
 print(f"  Salvo: {path_curvas}")
 
-# ─────────────────────────────────────────
-# 6. Tabela resumo final (markdown)
-# ─────────────────────────────────────────
 print("\n" + "=" * 60)
 print("TABELA RESUMO FINAL")
 print(f"{'Modo':<6} {'CCC_A':>7} {'CCC_V':>7} {'CCC_med':>8} {'Pearson_A':>10} {'RMSE_A':>7} {'RMSE_V':>7}")

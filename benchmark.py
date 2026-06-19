@@ -31,7 +31,7 @@ class ExperimentoMetrics:
     device:                  str
     total_params:            int
     epocas:                  List[EpocaMetrics] = field(default_factory=list)
-    # métricas de regressão — por segmento
+
     test_rmse_arousal:       float = 0.0
     test_rmse_valence:       float = 0.0
     test_mae_arousal:        float = 0.0
@@ -42,16 +42,16 @@ class ExperimentoMetrics:
     test_ccc_valence:        float = 0.0
     test_r2_arousal:         float = 0.0
     test_r2_valence:         float = 0.0
-    # RMSE agrupado por música (padrão PMEmo)
+
     test_rmse_songs_arousal: float = 0.0
     test_rmse_songs_valence: float = 0.0
-    # classificação emocional por quadrante
+
     quadrant_accuracy:       float = 0.0
     quadrant_f1_macro:       float = 0.0
     quadrant_report:         Dict  = field(default_factory=dict)
-    # CV summary
+
     cv_metricas:             Dict  = field(default_factory=dict)
-    # recursos
+
     tempo_total_seg:         float = 0.0
     cpu_percent_medio:       float = 0.0
     gpu_mem_pico_mb:         float = 0.0

@@ -44,10 +44,9 @@ ax.text(total_w / 2, total_h - 0.28,
         fontsize=12, fontweight="bold", color=WHITE,
         ha="center", va="center", fontfamily="monospace")
 
-# ── posições dos cards ────────────────────────────────────────────────────────
 def card_xy(row_idx, col_idx, n_in_row):
     row_width = n_in_row * CW + (n_in_row - 1) * HG
-    offset    = (total_w - row_width) / 2          # centro horizontal
+    offset    = (total_w - row_width) / 2  
     x = offset + col_idx * (CW + HG)
     y = total_h - MY - 0.55 - row_idx * (CH + VG) - CH
     return x, y
@@ -73,7 +72,6 @@ for ri, row in enumerate(rows):
                 fontsize=11, color=WHITE, va="center",
                 zorder=5, fontfamily="monospace")
 
-# ── setas ─────────────────────────────────────────────────────────────────────
 def draw_arrow(ax, x1, y1, x2, y2):
     ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
                 arrowprops=dict(arrowstyle="-|>", color=DIM,
@@ -87,20 +85,18 @@ for i in range(len(positions) - 1):
     ri_next = (i + 1) // COLS
 
     if ri_cur == ri_next:
-        # mesma linha: seta horizontal
         draw_arrow(ax, x1 + CW, y1 + CH / 2, x2, y2 + CH / 2)
     else:
-        # troca de linha: L invertido
-        bx = x1 + CW / 2   # centro-x do card atual
-        by = y1             # base do card atual
-        tx = x2 + CW / 2   # centro-x do próximo card
-        ty = y2 + CH        # topo do próximo card
+        bx = x1 + CW / 2   
+        by = y1            
+        tx = x2 + CW / 2  
+        ty = y2 + CH   
         mid_y = (by + ty) / 2
 
         ax.plot([bx, bx], [by, mid_y],  color=DIM, lw=1.1, zorder=6)
         ax.plot([bx, tx], [mid_y, mid_y], color=DIM, lw=1.1, zorder=6)
         draw_arrow(ax, tx, mid_y, tx, ty)
 
-fig.savefig("pipeline_treinamento.png", dpi=180,
+fig.savefig("figuras_tcc/pipeline_treinamento.png", dpi=180,
             bbox_inches="tight", facecolor=BG)
-print("Salvo: pipeline_treinamento.png")
+print("Salvo: figuras_tcc/pipeline_treinamento.png")

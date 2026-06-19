@@ -1,7 +1,4 @@
-# predict.py
 """
-Prevê a emoção de qualquer música usando os 3 modelos treinados (MEL, STFT, MFCC).
-
 Uso:
     python predict.py --audio musica.mp3
     python predict.py --audio musica.mp3 --plot
@@ -23,12 +20,9 @@ import matplotlib.patches as mpatches
 from dataset import transforms, SAMPLE_RATE, JANELA_SAMPLES, TRI_TARGET_F, _stats, _resize_freq, STFT_TARGET_F
 from model import build_model
 
-# ─────────────────────────────────────────
-# Argumentos
-# ─────────────────────────────────────────
 parser = argparse.ArgumentParser(description="MER Predict — prevê emoção com os 3 espectrogramas")
 parser.add_argument("--audio", type=str, required=True, help="Caminho do arquivo (.mp3/.wav)")
-parser.add_argument("--arch",  type=str, default="resnet18", choices=["cnn", "resnet18"])
+parser.add_argument("--arch",  type=str, default="resnet18", choices=["resnet18"])
 parser.add_argument("--plot",  action="store_true", help="Gera gráfico e salva PNG")
 args = parser.parse_args()
 
@@ -56,9 +50,6 @@ CORES_Q = {
 }
 CORES_MODO = {"mel": "#2196F3", "stft": "#4CAF50", "mfcc": "#FF9800"}
 
-# ─────────────────────────────────────────
-# Checkpoint
-# ─────────────────────────────────────────
 def encontrar_checkpoint(arch, modo):
     for padrao in [f"checkpoints/{arch}_{modo}_dinamico_*_best.pt",
                    f"checkpoints/{arch}_{modo}_*_best.pt"]:
@@ -70,9 +61,6 @@ def encontrar_checkpoint(arch, modo):
             return candidatos[0]
     return None
 
-# ─────────────────────────────────────────
-# Feature de um trecho
-# ─────────────────────────────────────────
 def extrair_feature(trecho, modo):
     if len(trecho) < JANELA_SAMPLES:
         trecho = np.pad(trecho, (0, JANELA_SAMPLES - len(trecho)))
@@ -83,9 +71,6 @@ def extrair_feature(trecho, modo):
     feat = (feat - _stats.get(modo, {}).get("mean", 0.0)) / (_stats.get(modo, {}).get("std", 1.0) + 1e-6)
     return feat
 
-# ─────────────────────────────────────────
-# Carregar áudio
-# ─────────────────────────────────────────
 if not os.path.exists(args.audio):
     print(f"Arquivo não encontrado: {args.audio}")
     sys.exit(1)
@@ -101,10 +86,7 @@ if not inícios:
 
 print(f"Duração: {duracao_s:.1f}s  |  {len(inícios)} frames analisados")
 
-# ─────────────────────────────────────────
-# Inferência — 3 modelos
-# ─────────────────────────────────────────
-resultados = {}   # modo → {"arousals", "valences"}
+resultados = {}
 
 for modo in MODOS:
     ckpt = encontrar_checkpoint(args.arch, modo)
@@ -140,9 +122,6 @@ if not resultados:
     print("Nenhum checkpoint encontrado. Execute o treino primeiro.")
     sys.exit(1)
 
-# ─────────────────────────────────────────
-# Resultado — 1 bloco por modo + consenso
-# ─────────────────────────────────────────
 nome_arq = os.path.basename(args.audio)
 print(f"\n{'='*60}")
 print(f"  {nome_arq}")
@@ -172,7 +151,6 @@ for modo in MODOS:
         bar = "█" * int(pct / 5)
         print(f"       {qq:<25} {bar:<20} {pct:5.1f}%")
 
-# Consenso (média dos modelos disponíveis)
 a_cons = float(np.mean(all_a))
 v_cons = float(np.mean(all_v))
 q_cons = QUADRANTES[(a_cons >= 0.5, v_cons >= 0.5)]
@@ -183,15 +161,11 @@ print(f"  Emoção  : {q_cons}")
 print(f"  Descrição: {DESCRICOES[q_cons]}")
 print(f"{'='*60}")
 
-# ─────────────────────────────────────────
-# Plot
-# ─────────────────────────────────────────
 if args.plot:
     n_modos = len(resultados)
     fig = plt.figure(figsize=(16, 4 + 3 * n_modos))
     gs  = fig.add_gridspec(n_modos + 1, 2, hspace=0.45, wspace=0.35)
 
-    # Curvas temporais — 1 linha por modo
     for row, modo in enumerate([m for m in MODOS if m in resultados]):
         r  = resultados[modo]
         ax = fig.add_subplot(gs[row, 0])
@@ -208,7 +182,6 @@ if args.plot:
         if row == n_modos - 1:
             ax.set_xlabel("Tempo (s)")
 
-        # Plano Russell
         ax2 = fig.add_subplot(gs[row, 1])
         ax2.scatter(r["valences"], r["arousals"],
                     c=tempos_s, cmap="plasma", s=12, alpha=0.6)
@@ -224,7 +197,6 @@ if args.plot:
                      nome.split("(")[0].strip(), fontsize=8, color="gray")
         ax2.legend(fontsize=8)
 
-    # Consenso — comparação de barras
     ax_bar = fig.add_subplot(gs[n_modos, :])
     modos_ok  = [m for m in MODOS if m in resultados]
     a_vals    = [resultados[m]["arousals"].mean() for m in modos_ok]

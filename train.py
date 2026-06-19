@@ -1,4 +1,3 @@
-# train.py
 import argparse
 import torch
 import torch.nn as nn
@@ -16,37 +15,27 @@ from dataset import DEAMDinamicoDataset, SUBSAMPLE_STEPS, _quadrante
 from model import build_model
 from benchmark import BenchmarkMonitor, ExperimentoMetrics, EpocaMetrics, salvar_resultados
 
-# ─────────────────────────────────────────
-# Argumentos (apenas o essencial)
-# ─────────────────────────────────────────
 parser = argparse.ArgumentParser(description="Treino MER — DEAM")
 parser.add_argument("--modo",   type=str, default="mel",
                     choices=["stft", "mel", "mfcc", "tri"],
                     help="Espectrograma de entrada")
-parser.add_argument("--arch",   type=str, default="cnn",
-                    choices=["cnn", "cnn3spec", "resnet18"],
-                    help="Arquitetura: cnn (padrão) ou resnet18 (fine-tuning)")
+parser.add_argument("--arch",   type=str, default="resnet18",
+                    choices=["resnet18"],
+                    help="Arquitetura do modelo")
 parser.add_argument("--epochs", type=int, default=100,
                     help="Número máximo de épocas por fold")
 args = parser.parse_args()
 
-# ─────────────────────────────────────────
-# Hiperparâmetros fixos
-# ─────────────────────────────────────────
 BATCH    = {"mfcc": 1024, "stft": 256, "mel": 256, "tri": 64}.get(args.modo, 256)
-# ResNet18 fine-tuning precisa de LR menor para não destruir pesos pré-treinados
 LR       = 3e-4 if args.arch == "resnet18" else 1e-3
 PATIENCE = 15
 FOLDS    = 5
-WORKERS  = 0   # Windows spawn causa deadlock com workers; shared tensor já elimina I/O
+WORKERS  = 0 
 DEVICE   = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-USE_AMP  = torch.cuda.is_available()          # Mixed precision (BF16) — 2-3× mais rápido
+USE_AMP  = torch.cuda.is_available() 
 SAVE_DIR = "checkpoints"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-# ─────────────────────────────────────────
-# Quadrantes emocionais (Russell)
-# ─────────────────────────────────────────
 QUADRANTES = {0: "Exaltado (A+V+)", 1: "Irritado (A+V-)",
               2: "Calmo (A-V+)",    3: "Triste (A-V-)"}
 
@@ -57,9 +46,6 @@ def para_quadrante(arousal: torch.Tensor, valence: torch.Tensor) -> torch.Tensor
     q[(arousal <  0.5) & (valence >= 0.5)] = 2
     return q
 
-# ─────────────────────────────────────────
-# Dados  (labels em [0,1] — sem normalização)
-# ─────────────────────────────────────────
 AUDIO_DIR = "data/deam/audio"
 CSV_PATH  = "data/dynamic_annotations.csv"
 
@@ -71,7 +57,6 @@ for fp in glob.glob(os.path.join(AUDIO_DIR, "*.mp3")):
 df        = pd.read_csv(CSV_PATH)
 music_ids = df["musicId"].unique()
 
-# Split por música: 10% teste, random_state=3
 rng      = np.random.default_rng(3)
 ids_shuf = rng.permutation(music_ids)
 n_test   = round(len(ids_shuf) * 0.10)
@@ -88,9 +73,6 @@ print(f"Usando: {DEVICE}")
 if torch.cuda.is_available():
     print(f"GPU: {torch.cuda.get_device_name(0)}")
 
-# ─────────────────────────────────────────
-# Métricas de regressão
-# ─────────────────────────────────────────
 _smooth_l1    = nn.SmoothL1Loss()
 MIXUP_ALPHA   = 0.4
 WARMUP_EPOCHS = 5
@@ -220,7 +202,6 @@ def avaliar(modelo, loader):
 def treinar_fold(df_train, df_val, fold_tag):
     modelo = build_model(args.arch, args.modo).to(DEVICE)
 
-    # ── Optimizer: layer1 do ResNet desbloqueada com LR reduzido (fine-tuning suave)
     if hasattr(modelo, 'backbone'):
         for p in modelo.backbone[4].parameters():
             p.requires_grad = True
@@ -236,10 +217,7 @@ def treinar_fold(df_train, df_val, fold_tag):
             [p for p in modelo.parameters() if p.requires_grad], lr=LR, weight_decay=1e-4
         )
 
-    # ── AMP scaler
     scaler = torch.amp.GradScaler("cuda") if USE_AMP else None
-
-    # ── Scheduler: warmup linear (WARMUP_EPOCHS) → cosine annealing
     warmup_sched = torch.optim.lr_scheduler.LinearLR(
         optimizer, start_factor=0.1, end_factor=1.0, total_iters=WARMUP_EPOCHS
     )
@@ -319,7 +297,6 @@ def treinar_fold(df_train, df_val, fold_tag):
     p_val, l_val = avaliar(modelo, dl_val)
     metricas = calcular_metricas(p_val, l_val)
 
-    # Encerra workers antes do próximo fold (evita deadlock com persistent_workers)
     del dl_train, dl_val, ds_train, ds_val
     torch.cuda.empty_cache()
 

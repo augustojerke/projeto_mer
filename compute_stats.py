@@ -1,4 +1,3 @@
-# compute_stats.py
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
@@ -20,7 +19,6 @@ for filepath in glob.glob(os.path.join(AUDIO_DIR, "*.mp3")):
 
 df = pd.read_csv(CSV_PATH)
 
-# Split por musicId para evitar vazamento de dados (usa só treino para calcular stats)
 music_ids = df["musicId"].unique()
 train_ids, _ = train_test_split(music_ids, test_size=0.1, random_state=3)
 df_train = df[df["musicId"].isin(train_ids)].reset_index(drop=True)

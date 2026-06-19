@@ -1,30 +1,7 @@
-# preprocess_deam.py
-"""
-Converte as anotações brutas do DEAM para o formato padrão do projeto:
-  - musicId, Arousal(mean), Valence(mean)              -> data/static_annotations.csv
-  - musicId, frameTime, Arousal(mean), Valence(mean)   -> data/dynamic_annotations.csv
-
-Valores originais do DEAM estão em [1, 9].
-Normalização: (x - 1) / 8  ->  [0, 1]
-
-Estrutura esperada do DEAM após download (Zenodo: https://zenodo.org/record/1188976):
-
-  data/deam/
-    audio/                          ← arquivos MP3 (ex: 2.mp3, 3.mp3 ...)
-    annotations/
-      annotations/
-        song_level/
-          static_annotations_averaged_songs_1_2000.csv
-        dynamic/
-          arousal.csv               ← wide: song_id | sample_15000ms | sample_15500ms ...
-          valence.csv               ← mesmo formato, valores em [-1, 1]
-"""
-
 import os
 import glob
 import pandas as pd
 
-# ── Caminhos de entrada ────────────────────────────────────────────────────────
 DEAM_DIR        = os.path.join("data", "deam")
 AUDIO_DIR       = os.path.join(DEAM_DIR, "audio")
 ANNOT_DIR       = os.path.join(DEAM_DIR, "annotations",
@@ -36,7 +13,6 @@ STATIC_RAW_2    = os.path.join(ANNOT_DIR, "song_level",
 DYNAMIC_AR_CSV  = os.path.join(ANNOT_DIR, "dynamic", "arousal.csv")
 DYNAMIC_VA_CSV  = os.path.join(ANNOT_DIR, "dynamic", "valence.csv")
 
-# ── Saída ──────────────────────────────────────────────────────────────────────
 OUT_STATIC  = os.path.join("data", "static_annotations.csv")
 OUT_DYNAMIC = os.path.join("data", "dynamic_annotations.csv")
 
@@ -125,7 +101,6 @@ def processar_dynamic(valid_ids):
             v = va_row[col]
             if pd.isna(a) or pd.isna(v):
                 continue
-            # [-1,1] -> [0,1]
             rows.append({
                 "musicId":       mid,
                 "frameTime":     round(t, 3),
@@ -139,7 +114,6 @@ def processar_dynamic(valid_ids):
 
 
 if __name__ == "__main__":
-    # Verificação rápida da estrutura de pastas
     for path in [AUDIO_DIR, ANNOT_DIR, STATIC_RAW]:
         if not os.path.exists(path):
             print(f"\nERRO: caminho não encontrado:\n  {os.path.abspath(path)}")

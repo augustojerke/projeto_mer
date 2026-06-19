@@ -1,4 +1,3 @@
-# dataset.py
 import os
 import json
 import torch
@@ -14,13 +13,13 @@ N_MELS         = 128
 N_MFCC         = 13
 N_FFT          = 1024
 HOP_LENGTH     = 512
-TRI_TARGET_F   = 128   # frequência comum para o modo tri
-STFT_TARGET_F  = 128   # reduz 513→128 bins para caber em RAM e acelerar treino
+TRI_TARGET_F   = 128  
+STFT_TARGET_F  = 128 
 
 transforms = {
     "stft": torch.nn.Sequential(
         T.Spectrogram(n_fft=N_FFT, hop_length=HOP_LENGTH),
-        T.AmplitudeToDB(stype="power")  # melhora estabilidade
+        T.AmplitudeToDB(stype="power") 
     ),
     "mel": torch.nn.Sequential(
         T.MelSpectrogram(sample_rate=SAMPLE_RATE, n_fft=N_FFT,
@@ -71,7 +70,7 @@ def carregar_feature_tri(music_id, frame_time, audio_map):
     trecho = _extrair_trecho(waveform, frame_time)
     wav    = torch.tensor(trecho).unsqueeze(0)
     specs  = [_resize_freq(transforms[m](wav), TRI_TARGET_F) for m in ("stft", "mel", "mfcc")]
-    return torch.cat(specs, dim=0)  # 3×TRI_TARGET_F×T
+    return torch.cat(specs, dim=0) 
 
 
 
@@ -94,15 +93,13 @@ def augmentar(feat):
     return feat
 
 
-# Quadrante a partir de arousal/valence escalar
 def _quadrante(a, v):
-    if a >= 0.5 and v >= 0.5: return 0  # Exaltado
-    if a >= 0.5 and v <  0.5: return 1  # Irritado
-    if a <  0.5 and v >= 0.5: return 2  # Calmo
-    return 3                             # Triste
+    if a >= 0.5 and v >= 0.5: return 0  
+    if a >= 0.5 and v <  0.5: return 1  
+    if a <  0.5 and v >= 0.5: return 2  
+    return 3                             
 
-# Steps de subsample por quadrante: minoritários usam step menor (mais frames)
-SUBSAMPLE_STEPS = {0: 4, 1: 2, 2: 2, 3: 3}  # Exaltado:4, Irritado:2, Calmo:2, Triste:3
+SUBSAMPLE_STEPS = {0: 4, 1: 2, 2: 2, 3: 3}  
 
 
 def carregar_feature(music_id, frame_time, audio_map, modo="mel"):
@@ -111,9 +108,6 @@ def carregar_feature(music_id, frame_time, audio_map, modo="mel"):
     return transforms[modo](torch.tensor(trecho).unsqueeze(0))
 
 
-# ─────────────────────────────────────────
-# Dataset Dinâmico — 1 amostra por frame
-# ─────────────────────────────────────────
 class DEAMDinamicoDataset(Dataset):
     def __init__(self, dataframe, audio_map=None, modo="mel",
                  processed_dir="data\\processed", augment=False, preload=True):
@@ -125,15 +119,13 @@ class DEAMDinamicoDataset(Dataset):
         self.mean          = _stats.get(modo, {}).get("mean", 0.0)
         self.std           = _stats.get(modo, {}).get("std", 1.0)
         self.cache_dir     = os.path.join(processed_dir, modo)
-        # Novo formato: 1 arquivo por música → {musicId}.pt com dict interno
         _first_mid = int(self.df['musicId'].iloc[0])
         self.use_cache = os.path.exists(
             os.path.join(self.cache_dir, f"{_first_mid}.pt")
         )
         self._mem            = {}
         self._mem_normalized = False
-
-        # Pré-extrai labels e keys sem iterrows (vetorizado — 100× mais rápido)
+        
         mids = self.df['musicId'].astype(int).values
         fts  = self.df['frameTime'].astype(float).values
         self._arousal = self.df['Arousal(mean)'].to_numpy(dtype=np.float32)
@@ -149,7 +141,6 @@ class DEAMDinamicoDataset(Dataset):
                 try:
                     song = torch.load(path, weights_only=True)
                     if self.modo == "stft":
-                        # Redimensiona 513→128 bins imediatamente para não acumular 34GB
                         song = {k: _resize_freq(v.float(), STFT_TARGET_F) for k, v in song.items()}
                     self._mem.update(song)
                 except Exception:

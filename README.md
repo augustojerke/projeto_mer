@@ -33,7 +33,7 @@ Avaliação (RMSE, MAE, Pearson, CCC, F1)
 Inferência em Áudio Arbitrário
 ```
 
-![Pipeline de Treinamento](pipeline_treinamento.png)
+![Pipeline de Treinamento](figuras_tcc/pipeline_treinamento.png)
 
 ---
 
@@ -43,7 +43,7 @@ Inferência em Áudio Arbitrário
 projeto_mer/
 ├── train.py               # Loop de treinamento (5-fold cross-validation)
 ├── predict.py             # Inferência em qualquer arquivo de áudio
-├── model.py               # Arquiteturas CNN (MERCnn e ResNet18MER)
+├── model.py               # Arquitetura ResNet18MER
 ├── dataset.py             # Dataset loader e extração de features
 ├── evaluate_chorus.py     # Avaliação em lote com geração de gráficos
 ├── preprocess.py          # Extração de features em paralelo (cache .pt)
@@ -52,8 +52,9 @@ projeto_mer/
 ├── analise_tcc.py         # Análise estatística (testes de Wilcoxon, curvas)
 ├── benchmark.py           # Monitoramento de CPU/GPU e serialização de resultados
 ├── plot_pipeline.py       # Gera a figura do pipeline de treinamento
-├── main.ipynb             # Notebook exploratório principal
-├── benchmark.ipynb        # Notebook de benchmarking e comparações
+├── analises/                        # Notebooks Jupyter
+│   ├── main.ipynb                   # Notebook exploratório principal
+│   └── benchmark.ipynb              # Benchmarking e comparações
 ├── pyproject.toml         # Dependências do projeto
 ├── data/
 │   ├── dynamic_annotations.csv      # ~130k frames com arousal/valência
@@ -61,7 +62,10 @@ projeto_mer/
 │   └── stats.json                   # Estatísticas de normalização (MEL/STFT/MFCC)
 ├── figuras_tcc/                     # Figuras geradas para o TCC
 ├── analise_tcc/                     # Scatter plots e curvas de aprendizado
-└── resultados_resnet18_{mel,mfcc,stft}_dinamico.json  # Logs de treinamento
+└── resultados/                      # Logs de treinamento
+    ├── resultados_resnet18_mel_dinamico.json
+    ├── resultados_resnet18_mfcc_dinamico.json
+    └── resultados_resnet18_stft_dinamico.json
 ```
 
 > Diretórios ignorados pelo git: `data/deam/`, `data/processed/`, `checkpoints/`, `cache/`
@@ -81,9 +85,6 @@ Parâmetros de áudio: 22.050 Hz, janela de 4s, FFT 1024, hop 512.
 ---
 
 ## Arquiteturas de Modelo
-
-### MERCnn (Leve, Customizada)
-Rede CNN com 4 blocos residuais e pooling adaptativo. Funciona com qualquer entrada espectral (13 MFCC ou 128 bins MEL/STFT).
 
 ### ResNet18MER (Transfer Learning)
 ResNet18 pré-treinada no ImageNet, adaptada para entrada monocanal. Camadas iniciais congeladas (`conv1`, `bn1`, `layer1`); backbone fine-tuned com taxa de aprendizado diferenciada. Cabeça de saída: `Flatten → Dropout(0.5) → Dense(512→128) → Dense(128→2) → Sigmoid`.

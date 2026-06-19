@@ -1,7 +1,5 @@
-# evaluate_chorus.py
-"""
-Testa o modelo em todas as músicas da pasta chorus usando o CSV de anotações.
 
+"""
 Uso:
     python evaluate_chorus.py
     python evaluate_chorus.py --modo stft
@@ -26,14 +24,11 @@ from sklearn.metrics import confusion_matrix, classification_report, f1_score, a
 from dataset import transforms, SAMPLE_RATE, JANELA_SAMPLES, _stats, _resize_freq, TRI_TARGET_F
 from model import build_model
 
-# ─────────────────────────────────────────
-# Argumentos
-# ─────────────────────────────────────────
 parser = argparse.ArgumentParser(description="Avaliação em massa — pasta chorus")
 parser.add_argument("--audio_dir",  type=str, default="data/chorus",   help="Pasta com os .mp3")
 parser.add_argument("--csv",        type=str, default="data/static_annotations.csv",
                     help="CSV de anotações (default: DEAM static, mesma escala do treino)")
-parser.add_argument("--arch",       type=str, default="resnet18",       choices=["cnn","cnn3spec","resnet18"])
+parser.add_argument("--arch",       type=str, default="resnet18",       choices=["resnet18"])
 parser.add_argument("--modo",       type=str, default="mel",            choices=["stft","mel","mfcc","tri"])
 parser.add_argument("--checkpoint", type=str, default=None)
 parser.add_argument("--plot",       action="store_true")
@@ -57,9 +52,6 @@ CORES_Q = {
     "Triste (A-V-)":    "#2196F3",
 }
 
-# ─────────────────────────────────────────
-# Checkpoint
-# ─────────────────────────────────────────
 def encontrar_checkpoint(arch, modo, tarefa):
     padroes = [
         f"checkpoints/{arch}_{modo}_{tarefa}_*_best.pt",
@@ -81,17 +73,11 @@ ckpt = args.checkpoint or encontrar_checkpoint(args.arch, args.modo, "dinamico")
 print(f"Checkpoint : {ckpt}")
 print(f"Dispositivo: {DEVICE}")
 
-# ─────────────────────────────────────────
-# Modelo
-# ─────────────────────────────────────────
 modelo = build_model(args.arch, args.modo).to(DEVICE)
 modelo.load_state_dict(torch.load(ckpt, map_location=DEVICE, weights_only=True))
 modelo.eval()
 print(f"Modelo     : {args.arch} | modo: {args.modo}\n")
 
-# ─────────────────────────────────────────
-# Dados
-# ─────────────────────────────────────────
 df_gt = pd.read_csv(args.csv)
 df_gt.columns = df_gt.columns.str.strip()
 
@@ -104,9 +90,6 @@ ids_validos = set(df_gt["musicId"].values) & set(audio_map.keys())
 df_gt = df_gt[df_gt["musicId"].isin(ids_validos)].reset_index(drop=True)
 print(f"Músicas com anotação e áudio: {len(df_gt)}")
 
-# ─────────────────────────────────────────
-# Extração de feature de um trecho
-# ─────────────────────────────────────────
 HOP_SAMPLES = int(0.5 * SAMPLE_RATE)
 
 def extrair_feature(trecho):
@@ -138,9 +121,6 @@ def predizer_musica(filepath):
         preds = modelo(batch).cpu().numpy()
     return float(preds[:, 0].mean()), float(preds[:, 1].mean())
 
-# ─────────────────────────────────────────
-# Inferência em massa
-# ─────────────────────────────────────────
 resultados = []
 total = len(df_gt)
 
@@ -176,9 +156,6 @@ for i, row in df_gt.iterrows():
 
 df_res = pd.DataFrame(resultados)
 
-# ─────────────────────────────────────────
-# Métricas
-# ─────────────────────────────────────────
 def pearson(a, b):
     a, b = np.array(a), np.array(b)
     return np.corrcoef(a, b)[0, 1]
@@ -200,10 +177,6 @@ def r2(true, pred):
     ss_tot = ((true - true.mean())**2).sum()
     return float(1 - ss_res / (ss_tot + 1e-8))
 
-# ── Calibração pós-treino (opcional) ──────────────────────────────────────
-# Escala as predições para ter mesma média e std do DEAM de treino.
-# Fórmula: pred_cal = (pred - pred_mean) / pred_std * deam_std + deam_mean
-# Estatísticas do DEAM dynamic (calculadas no compute_stats.py)
 DEAM_STATS = {
     "mel":  {"arousal": {"mean": 0.5637, "std": 0.1415}, "valence": {"mean": 0.5386, "std": 0.1256}},
     "stft": {"arousal": {"mean": 0.5637, "std": 0.1415}, "valence": {"mean": 0.5386, "std": 0.1256}},
@@ -220,7 +193,6 @@ if args.calibrar:
     df_res["erro_arousal"] = (df_res["arousal_real"] - df_res["arousal_pred"]).abs().round(4)
     df_res["erro_valence"] = (df_res["valence_real"] - df_res["valence_pred"]).abs().round(4)
     df_res["erro_total"]   = df_res["erro_arousal"] + df_res["erro_valence"]
-    # Recalcula quadrante predito
     df_res["quadrante_pred"]    = df_res.apply(
         lambda r: next(n for (af,vf),n in QUADRANTES.items()
                        if (r["arousal_pred"]>=0.5)==af and (r["valence_pred"]>=0.5)==vf), axis=1)
@@ -251,7 +223,6 @@ print(f"  R²       A: {r2(a_true, a_pred):.4f}   V: {r2(v_true, v_pred):.4f}")
 print(f"  Acurácia quadrante: {acc:.4f}  |  F1-macro: {f1_mac:.4f}")
 print(f"\n{report}")
 
-# ── Distribuição das predições ──────────────────────────────────────────────
 print(f"  Distribuição predições (min/media/max):")
 print(f"    Arousal pred: {a_pred.min():.3f} / {a_pred.mean():.3f} / {a_pred.max():.3f}")
 print(f"    Valence pred: {v_pred.min():.3f} / {v_pred.mean():.3f} / {v_pred.max():.3f}")
@@ -259,7 +230,6 @@ print(f"  Distribuição labels reais:")
 print(f"    Arousal real: {a_true.min():.3f} / {a_true.mean():.3f} / {a_true.max():.3f}")
 print(f"    Valence real: {v_true.min():.3f} / {v_true.mean():.3f} / {v_true.max():.3f}")
 
-# ── Piores e melhores predições ─────────────────────────────────────────────
 df_res["erro_total"] = df_res["erro_arousal"] + df_res["erro_valence"]
 print(f"\n  5 músicas com MAIOR erro:")
 print(df_res.nlargest(5, "erro_total")[
@@ -270,33 +240,26 @@ print(df_res.nsmallest(5, "erro_total")[
     ["musicId","arousal_real","valence_real","arousal_pred","valence_pred","quadrante_real","quadrante_pred"]
 ].to_string(index=False))
 
-# ── Salvar CSV sempre ───────────────────────────────────────────────────────
 csv_path = args.out or f"comparacao_{args.arch}_{args.modo}.csv"
 df_res.sort_values("musicId").to_csv(csv_path, index=False)
 print(f"\nCSV de comparação salvo em: {csv_path}")
 
-# ─────────────────────────────────────────
-# Plots (opcional)
-# ─────────────────────────────────────────
 if args.plot:
     sns.set_theme(style="whitegrid", font_scale=1.1)
     fig, axes = plt.subplots(2, 2, figsize=(14, 11))
 
-    # 1. Scatter Arousal: pred vs true
     axes[0][0].scatter(a_true, a_pred, alpha=0.4, s=15, color="#E53935")
     axes[0][0].plot([0,1],[0,1], 'k--', linewidth=1)
     axes[0][0].set_xlabel("Arousal Real")
     axes[0][0].set_ylabel("Arousal Predito")
     axes[0][0].set_title(f"Arousal  Pearson={pearson(a_true,a_pred):.3f}  CCC={ccc(a_true,a_pred):.3f}")
 
-    # 2. Scatter Valence: pred vs true
     axes[0][1].scatter(v_true, v_pred, alpha=0.4, s=15, color="#1E88E5")
     axes[0][1].plot([0,1],[0,1], 'k--', linewidth=1)
     axes[0][1].set_xlabel("Valence Real")
     axes[0][1].set_ylabel("Valence Predito")
     axes[0][1].set_title(f"Valence  Pearson={pearson(v_true,v_pred):.3f}  CCC={ccc(v_true,v_pred):.3f}")
 
-    # 3. Plano Russell — Real vs Predito
     axes[1][0].scatter(v_true, a_true, alpha=0.4, s=15, label="Real",    color="#43A047")
     axes[1][0].scatter(v_pred, a_pred, alpha=0.4, s=15, label="Predito", color="#FB8C00", marker="^")
     axes[1][0].axhline(0.5, color='gray', linestyle='--', linewidth=0.8)
@@ -310,7 +273,6 @@ if args.plot:
         axes[1][0].text(0.75 if vf else 0.03, 0.75 if af else 0.03,
                         nome.split('(')[0].strip(), fontsize=8, color='gray', alpha=0.8)
 
-    # 4. Confusion matrix quadrantes
     cm = confusion_matrix(q_true, q_pred, labels=nomes_q)
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                 xticklabels=[q[:10] for q in nomes_q],
